@@ -37,8 +37,8 @@ async def select(sql, args, size=None):
         return rs
 
 async def execute(sql, args):
-# 用于INSERT, UPDATE, DELETE,因为它们需要相同的参数，并返回一个整数表示影响的行数。
-    logging.info(sql,args)
+    # 用于INSERT, UPDATE, DELETE,因为它们需要相同的参数，并返回一个整数表示影响的行数。
+    logging.info(sql)
     global __pool
     with (await __pool) as conn:
         try:
@@ -120,7 +120,7 @@ class ModelMetaclass(type):
         attrs['__fields__'] = fields # 除主键外的属性名
         # 构造默认的SELECT, INSERT, UPDATE和DELETE语句：
         attrs['__select__'] = 'select `%s`, %s from `%s`' % (primaryKey, ', '.join(escaped_fields), tableName)
-        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) value (%s)' % (tableName,', '.join(escaped_fields), primaryKey, '?'*(len(escaped_fields)+1))
+        attrs['__insert__'] = 'insert into `%s` (%s, `%s`) value (%s)' % (tableName,', '.join(escaped_fields), primaryKey, ', '.join(['?']*(len(escaped_fields)+1)))
         attrs['__update__'] = 'update `%s` set %s where `%s`=?' % (tableName, ', '.join(map(lambda f: '`%s`=?' % (mappings.get(f).name or f), fields)), primaryKey)
         # 根据主键位置，更新其他属性值
         attrs['__delete__'] = 'delete from `%s` where `%s`=?' % (tableName, primaryKey)
@@ -205,11 +205,6 @@ class Model(dict, metaclass=ModelMetaclass):
             logging.warn('failed to remove record: affected rows: %s' % rows)
 
 
-class User(Model):
-    __table__ = 'users'
-
-    id = IntegerField(primary_key=True)
-    name = StringField()
 
 # 小思考：
 # 1.该orm方法并没有对表的数据进行检验，
