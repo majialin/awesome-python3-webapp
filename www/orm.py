@@ -71,6 +71,18 @@ class IntegerField(Field):
     def __init__(self, name=None, primary_key=False, default=None, ddl='integer(20)'):
         super().__init__(name, ddl, primary_key, default)
 
+class BooleanField(Field):
+    def __init__(self, name=None, default=False):
+        super().__init__(name, 'boolean', False, default)
+
+class FloatField(Field):
+    def __init__(self, name=None, primary_key=False, default=0.0):
+        super().__init__(name, 'real', primary_key, default )
+
+class TextField(Field):
+    def __init__(self, name=None, default=None):
+        super().__init__(name, 'text', False, default)
+
 class ModelMetaclass(type):
     def __new__(cls, name, bases, attrs):
         # 排除Model类本身:
@@ -132,6 +144,7 @@ class Model(dict, metaclass=ModelMetaclass):
     def getValue(self, key):
         return getattr(self, key, None)
         # getattr 取得属性值，不存在则返回默认值（即第三个参数）
+        # 直接调用self.__getattr__再作if判断可能会好些，因为可以避免表格列名存在同名属性
 
     def getValueOrDefault(self, key):
         value = getattr(self, key, None)
@@ -171,6 +184,25 @@ class Model(dict, metaclass=ModelMetaclass):
         else:
             logging.info('%s not exist in table %s' % (field, cls.__table__))
         return [cls(**i) for i in rs]
+
+    async def findNumber(self, field, value):
+        # find items amount where field is value
+        if field in self.__mappings__:
+            rs = await select('SELECT COUNT(`%s`) where `%s`=?' % (field, field), [value], 1)
+        else:
+            logging.info('%s not exist in table %s' % (field, self.__table__))
+        return rs[0]
+
+    async def update(self):
+        rows = await execute(self.__update__, list(map(self.getValueOrDefault, self.__fields__ + [self.__primary_key__])))
+        # 也可以使用save方法的代码，本质一样
+        if rows != 1:
+            logging.warn('failed to update record: affected rows: %s' % rows)
+
+    async def remove(self):
+        rows = await execute(self.__delete__,self.getValue(self.__primaty_key__))
+        if rows != 1:
+            logging.warn('failed to remove record: affected rows: %s' % rows)
 
 
 class User(Model):
